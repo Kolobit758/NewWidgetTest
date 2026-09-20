@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#00000000">
+
+    <LinearLayout
+        android:id="@+id/statsContainer"
+        android:layout_width="110dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:orientation="vertical"
+        android:padding="4dp"
+        android:background="#88000000">
+
+        <!-- Hunger -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+
+            <TextView
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:text="🍖"
+                android:textSize="9sp"
+                android:gravity="center" />
+
+            <ProgressBar
+                android:id="@+id/barHunger"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="8dp"
+                android:layout_marginStart="2dp"
+                android:max="100"
+                android:progress="0"
+                android:progressTint="#FF7043"
+                android:progressBackgroundTint="#33FFFFFF" />
+        </LinearLayout>
+
+        <!-- Energy -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="2dp">
+
+            <TextView
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:text="⚡"
+                android:textSize="9sp"
+                android:gravity="center" />
+
+            <ProgressBar
+                android:id="@+id/barEnergy"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="8dp"
+                android:layout_marginStart="2dp"
+                android:max="100"
+                android:progress="100"
+                android:progressTint="#4CAF50"
+                android:progressBackgroundTint="#33FFFFFF" />
+        </LinearLayout>
+
+        <!-- Boredom -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="16dp"
+                android:layout_height="wrap_content"
+                android:text="😐"
+                android:textSize="9sp"
+                android:gravity="center" />
+
+            <ProgressBar
+                android:id="@+id/barBoredom"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="8dp"
+                android:layout_marginStart="2dp"
+                android:max="100"
+                android:progress="0"
+                android:progressTint="#42A5F5"
+                android:progressBackgroundTint="#33FFFFFF" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/catiBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/cozy_background"/>
+
+    <LinearLayout
+        android:id="@+id/tapGridContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical" />
+
+    <FrameLayout
+        android:id="@+id/itemContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <ImageView
+            android:id="@+id/itemImage"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_gravity="top|start"
+            android:scaleType="fitCenter"
+            android:visibility="gone"
+            android:contentDescription="item" />
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/catContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <LinearLayout
+                android:id="@+id/statusBubbleContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:background="@drawable/bubble_bg"
+                android:visibility="gone"
+                android:layout_marginBottom="8dp"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:elevation="6dp">
+
+                <ImageView
+                    android:id="@+id/statusIcon"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:scaleType="fitCenter"
+                    android:visibility="gone"
+                    android:contentDescription="status icon" />
+
+                <TextView
+                    android:id="@+id/chatBubble"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#000000"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    android:layout_marginStart="6dp" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/catImage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:scaleType="fitCenter"
+                android:src="@drawable/cat_idle"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="cat" />
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+    <Button
+        android:id="@+id/btnTest"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:text="Test Hungry"
+        android:textSize="8sp"
+        android:padding="0.1dp"
+        android:backgroundTint="#00000000"
+        android:textColor="#FF000000" />
+
+    <Button
+        android:id="@+id/btnReset"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:text="Reset Action"
+        android:textSize="8sp"
+        android:padding="0.1dp"
+        android:backgroundTint="#00000000"
+        android:textColor="#FF000000" />
+
+    <Button
+        android:id="@+id/btnTestWalk"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:text="Test Walk"
+        android:textSize="8sp"
+        android:padding="0.1dp"
+        android:backgroundTint="#00000000"
+        android:textColor="#FF000000" />
+
+    <ImageButton
+        android:id="@+id/btnMute"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="8dp"
+        android:background="@android:color/transparent"
+        android:src="@drawable/ic_volume_up" />
+
+</FrameLayout>

@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#00000000">
+
+    <!-- 1. Background -->
+    <ImageView
+        android:id="@+id/catiBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/realbg"/>
+
+    <!-- 2. Tap grid container for background clicks -->
+    <LinearLayout
+        android:id="@+id/tapGridContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical" />
+
+    <!-- 3. Items falling overlay -->
+    <FrameLayout
+        android:id="@+id/itemContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/itemImage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:scaleType="fitCenter"
+            android:visibility="gone"
+            android:contentDescription="item" />
+    </FrameLayout>
+
+    <!-- 4. Interactive Cat & Status Speech Bubble Container -->
+    <FrameLayout
+        android:id="@+id/catContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <!-- Status Speech Bubble Container (Icon + Text) -->
+            <LinearLayout
+                android:id="@+id/statusBubbleContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:background="@drawable/bubble_bg"
+                android:visibility="gone"
+                android:layout_marginBottom="8dp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="6dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:elevation="6dp">
+
+                <ImageView
+                    android:id="@+id/statusIcon"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:scaleType="fitCenter"
+                    android:visibility="gone"
+                    android:contentDescription="status icon" />
+
+                <TextView
+                    android:id="@+id/chatBubble"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#000000"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:visibility="gone"
+                    android:layout_marginStart="4dp" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/catImage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:scaleType="fitCenter"
+                android:src="@drawable/cat_idle"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="cat" />
+
+        </LinearLayout>
+
+    </FrameLayout>
+
+    <!-- 5. Control Buttons -->
+<!--    <Button-->
+<!--        android:id="@+id/btnTest"-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:layout_gravity="bottom|start"-->
+<!--        android:text="Test Hungry"-->
+<!--        android:textSize="8sp"-->
+<!--        android:padding="0.1dp"-->
+<!--        android:backgroundTint="#00000000"-->
+<!--        android:textColor="#FF000000" />-->
+
+<!--    <Button-->
+<!--        android:id="@+id/btnReset"-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:layout_gravity="bottom|end"-->
+<!--        android:text="Reset"-->
+<!--        android:textSize="8sp"-->
+<!--        android:padding="0.1dp"-->
+<!--        android:backgroundTint="#00000000"-->
+<!--        android:textColor="#FF000000" />-->
+
+<!--    <Button-->
+<!--        android:id="@+id/btnTestWalk"-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:layout_gravity="top|end"-->
+<!--        android:layout_marginTop="40dp"-->
+<!--        android:layout_marginEnd="8dp"-->
+<!--        android:text="Test Walk"-->
+<!--        android:textSize="8sp"-->
+<!--        android:padding="0.1dp"-->
+<!--        android:backgroundTint="#00000000"-->
+<!--        android:textColor="#FF000000" />-->
+
+    <ImageButton
+        android:id="@+id/btnMute"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="8dp"
+        android:background="@android:color/transparent"
+        android:src="@drawable/ic_volume_up" />
+
+</FrameLayout>
