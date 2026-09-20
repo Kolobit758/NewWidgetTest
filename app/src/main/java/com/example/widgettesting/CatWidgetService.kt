@@ -33,6 +33,7 @@ class CatWidgetService : Service() {
     private var walkTestJob: Job? = null
     private var jumpJob: Job? = null
     private var squishJob: Job? = null
+    private var chaseJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Main)
 
     private var isFirstRun = true
@@ -77,6 +78,16 @@ class CatWidgetService : Service() {
     private val KEY_IS_APP_OPEN = "is_app_open"
 
     private var statTickCounter = 0
+
+    // ---- Chase (ชวนเล่นจับ) event state ----
+    private var chaseActive = false
+    private var chaseCaught = false
+    private var chaseHits = 0
+    private val CHASE_ROUNDS = 5
+
+    private val chaseInviteMsgs = listOf("มาเล่นกับเราสิ~", "เบื่อจังเลย เล่นกันมั้ย?", "จับเราให้ได้สิ~")
+    private val chaseCaughtMsgs = listOf("โดนละเหรอ!", "อ๊ะ! จับได้แล้วเหรอ~", "เก่งนี่... โดนละเหรอ")
+    private val chaseTauntMsgs = listOf("จับไม่ได้หรอก~ เบ้ๆ", "ช้าจัง~ ๆ", "พลาดละสิ! ฮิๆ", "อยู่นี่นะ~ จับไม่โดน")
 
     private fun saveStatsToPrefs() {
         try {
@@ -147,7 +158,8 @@ class CatWidgetService : Service() {
 
     enum class State {
         IDLE, WALKING, WALKING_TO_CENTER, EATING, JUMPING, PLAYING, STRETCH, NAP, SNUGGLE, GROOMING, WALK_COUNTING,
-        WALKING_TO_ITEM, WAND_PLAY, BOX_HIDDEN, BOX_EMERGE, TRAIN_IDLE, HUNGRY, ANGRY, ITCHY, ROLLING
+        WALKING_TO_ITEM, WAND_PLAY, BOX_HIDDEN, BOX_EMERGE, TRAIN_IDLE, HUNGRY, ANGRY, ITCHY, ROLLING,
+        CHASE_INVITE, CHASE_HOP
     }
 
     enum class ItemType { WAND, BOX, FOOD, COCKROACH, SNAKE }
@@ -278,7 +290,7 @@ class CatWidgetService : Service() {
                     playClickSound()
                     playMeowSound()
                     triggerSquishEffect(1f)
-                    handleDirectCatTap()
+                    if (chaseActive) handleChaseCatTap() else handleDirectCatTap()
                 }
                 CatWidgetProvider.ACTION_TAP_STATUS -> {
                     playClickSound()
@@ -314,17 +326,22 @@ class CatWidgetService : Service() {
                 }
                 CatWidgetProvider.ACTION_TAP_WIDGET -> {
                     playClickSound()
-                    val (maxX, maxY) = getItemBounds()
-                    if (maxX > 0 && maxY > 0) {
-                        val randomX = Random.nextInt(0, maxX + 1)
-
-                        // *** บังคับให้จุดตกลงมาอยู่บริเวณพื้น (ช่วง 75% ถึง 95% ของความสูงทั้งหมด) ***
-                        val minLandY = (maxY * 0.75f).toInt()
-                        val randomY = Random.nextInt(minLandY, maxY + 1)
-
-                        spawnRandomItem(randomX, randomY)
+                    if (chaseActive) {
+                        // ระหว่างเล่นจับ: แตะพลาด = แมวเยาะเย้ย (ไม่ปล่อยไอเทมตก)
+                        handleChaseMissTap()
                     } else {
-                        Log.w(TAG, "Cannot spawn item: invalid bounds maxX=$maxX maxY=$maxY")
+                        val (maxX, maxY) = getItemBounds()
+                        if (maxX > 0 && maxY > 0) {
+                            val randomX = Random.nextInt(0, maxX + 1)
+
+                            // *** บังคับให้จุดตกลงมาอยู่บริเวณพื้น (ช่วง 75% ถึง 95% ของความสูงทั้งหมด) ***
+                            val minLandY = (maxY * 0.75f).toInt()
+                            val randomY = Random.nextInt(minLandY, maxY + 1)
+
+                            spawnRandomItem(randomX, randomY)
+                        } else {
+                            Log.w(TAG, "Cannot spawn item: invalid bounds maxX=$maxX maxY=$maxY")
+                        }
                     }
                 }
                 CatWidgetProvider.ACTION_UNITY_COMMAND -> {
@@ -379,8 +396,15 @@ class CatWidgetService : Service() {
             durationMs = parts.getOrNull(1)?.trim()?.toLongOrNull() ?: 3000L
         }
 
+        // Unity สั่งเริ่มเกมชวนเล่นจับได้ด้วย chase / tease / invite
+        val lowerAction = actionName?.lowercase()
+        if (lowerAction == "chase" || lowerAction == "tease" || lowerAction == "invite") {
+            startChaseEvent()
+            return
+        }
+
         val message = intent.getStringExtra("message")
-        val targetState = when (actionName?.lowercase()) {
+        val targetState = when (lowerAction) {
             "stretch" -> State.STRETCH
             "nap", "sleep" -> State.NAP
             "snuggle" -> State.SNUGGLE
@@ -404,6 +428,7 @@ class CatWidgetService : Service() {
             val configInfo = statusConfigMap[targetState]
             performStateAction(targetState, finalDuration, message ?: configInfo?.message, configInfo?.iconRes)
         } else {
+            cancelChase()
             catState = State.IDLE
             unityMessage = message
             currentStatusIconRes = null
@@ -432,6 +457,8 @@ class CatWidgetService : Service() {
     }
 
     private fun handleStatusBubbleTap() {
+        if (chaseActive) return // กันแตะ bubble แล้วแมวไปกินข้าวกลางเกม
+
         val currentConfig = statusConfigMap[catState]
         if (currentConfig != null && currentConfig.isClickable && currentConfig.targetState != null) {
             val targetState = currentConfig.targetState
@@ -464,6 +491,7 @@ class CatWidgetService : Service() {
         iconRes: Int? = null,
         onStartAction: () -> Unit = {}
     ) {
+        cancelChase()
         actionJob?.cancel()
         triggerSquishEffect(0.4f)
         actionJob = scope.launch {
@@ -500,6 +528,7 @@ class CatWidgetService : Service() {
         itemFallJob?.cancel()
         jumpJob?.cancel()
         squishJob?.cancel()
+        cancelChase()
         squishScaleX = 1f
         squishScaleY = 1f
         catState = State.IDLE
@@ -533,13 +562,12 @@ class CatWidgetService : Service() {
         itemFallJob?.cancel()
         itemFallJob = scope.launch {
             val density = resources.displayMetrics.density
-            val itemSizePx = (60 * density).toInt().coerceAtLeast(1)
             val (maxX, maxY) = getItemBounds()
 
             val safeLandX = landX.coerceIn(0, maxX)
             val safeLandY = landY.coerceIn(0, maxY)
 
-            // เริ่มจากเหนือจอสุดๆ เหมือนเดิม
+            // เริ่มจากเหนือจอสุดๆ
             val startY = (-300 * density).toInt()
 
             itemX = safeLandX
@@ -548,29 +576,25 @@ class CatWidgetService : Service() {
 
             var currentY = startY.toFloat()
 
-            // --- 🚀 เพิ่มระบบ Physics (แรงโน้มถ่วง) ---
-            var velocityY = 0f // ความเร็วเริ่มต้น (0)
-
-            // ค่าแรงโน้มถ่วง (ความเร่ง) ยิ่งค่ามาก ตอนปลายจะยิ่งร่วงเร็วปรี๊ด! (ปรับแต่งได้)
+            // ระบบ Physics (แรงโน้มถ่วง)
+            var velocityY = 0f
             val gravity = 9.5f * density
 
-            // วนลูปไปเรื่อยๆ จนกว่าไอเทมจะร่วงถึงพื้น (safeLandY)
             while (currentY < safeLandY) {
-                velocityY += gravity      // 1. ความเร็วเพิ่มขึ้นเรื่อยๆ ทุกเฟรม (เร่งความเร็ว)
-                currentY += velocityY     // 2. ตำแหน่งเลื่อนลงตามความเร็ว ณ ตอนนั้น
+                velocityY += gravity
+                currentY += velocityY
 
                 itemX = safeLandX
-                itemY = currentY.toInt().coerceAtMost(safeLandY) // ล็อคไม่ให้ทะลุพื้น
+                itemY = currentY.toInt().coerceAtMost(safeLandY)
 
                 updateWidget()
-                delay(16) // หน่วงเวลา 16ms (ประมาณ 60 เฟรมต่อวินาที เพื่อให้สมูท)
+                delay(16)
             }
 
             itemX = safeLandX
-            itemY = safeLandY // ล็อคตำแหน่งให้หยุดสนิทที่พื้นตอนจบ
+            itemY = safeLandY
             updateWidget()
 
-            // ทำกิจกรรมต่อตามประเภท Item...
             when (item) {
                 ItemType.WAND -> handleWandItem(landX, landY)
                 ItemType.BOX -> handleBoxItem(landX, landY)
@@ -582,10 +606,12 @@ class CatWidgetService : Service() {
     }
 
     private fun handleWandItem(x: Int, y: Int) {
+        cancelChase()
         actionJob?.cancel()
         actionJob = scope.launch {
-            targetX = x
-            targetY = y
+            val (maxX, maxY) = getMaxBounds()
+            targetX = x.coerceIn(0, maxX)
+            targetY = y.coerceIn(0, maxY)
             catState = State.WALKING_TO_ITEM
             while (catState == State.WALKING_TO_ITEM && (kotlin.math.abs(catX - targetX) >= 5 || kotlin.math.abs(catY - targetY) >= 5)) {
                 delay(100)
@@ -607,9 +633,11 @@ class CatWidgetService : Service() {
     }
 
     private fun handleBoxItem(x: Int, y: Int) {
+        cancelChase()
         actionJob?.cancel()
         actionJob = scope.launch {
-            targetX = x; targetY = y
+            val (maxX, maxY) = getMaxBounds()
+            targetX = x.coerceIn(0, maxX); targetY = y.coerceIn(0, maxY)
             catState = State.WALKING_TO_ITEM
             while (catState == State.WALKING_TO_ITEM && (kotlin.math.abs(catX - targetX) >= 5 || kotlin.math.abs(catY - targetY) >= 5)) {
                 delay(100)
@@ -634,9 +662,11 @@ class CatWidgetService : Service() {
     }
 
     private fun handleFoodItem(x: Int, y: Int) {
+        cancelChase()
         actionJob?.cancel()
         actionJob = scope.launch {
-            targetX = x; targetY = y
+            val (maxX, maxY) = getMaxBounds()
+            targetX = x.coerceIn(0, maxX); targetY = y.coerceIn(0, maxY)
             catState = State.WALKING_TO_ITEM
             while (catState == State.WALKING_TO_ITEM && (kotlin.math.abs(catX - targetX) >= 5 || kotlin.math.abs(catY - targetY) >= 5)) {
                 delay(100)
@@ -659,10 +689,11 @@ class CatWidgetService : Service() {
         }
     }
 
+    // เจอแมงสาบ/งู: ตกใจ 800ms แล้วโดดหนีหลายรอบ
     private fun handleScaryBugItem(x: Int, y: Int, isSnake: Boolean) {
+        cancelChase()
         actionJob?.cancel()
         actionJob = scope.launch {
-            val (maxX, maxY) = getMaxBounds()
             catState = State.ANGRY
             unityMessage = if (isSnake) "กรี๊ด! งูมา! ช่วยด้วยยย!" else "ยี้! แมลงสาบ น่ากลัวโว้ย!"
             currentStatusIconRes = R.drawable.ic_status_angry
@@ -672,36 +703,135 @@ class CatWidgetService : Service() {
             delay(800)
 
             activeItem = null
-            val escapeTargetX = if (x < maxX / 2) Random.nextInt(maxX / 2, maxX) else Random.nextInt(0, maxX / 2)
-            val escapeTargetY = catY
-            catState = State.JUMPING
-            val jumpHeight = (90 * resources.displayMetrics.density).toInt()
-            val steps = 6
-
-            for (s in 1..steps) {
-                val progress = s.toFloat() / steps
-                catX = (catX + (escapeTargetX - catX) * progress).toInt().coerceIn(0, maxX)
-                catY = (escapeTargetY + (jumpHeight * kotlin.math.sin(progress * Math.PI)).toInt()).coerceIn(0, maxY + jumpHeight)
-                updateWidget()
-                delay(50)
-            }
-
-            catX = escapeTargetX.coerceIn(0, maxX)
-            catY = escapeTargetY.coerceIn(0, maxY)
             boredom = (boredom - 20).coerceAtLeast(0)
             saveStatsToPrefs()
-            triggerSquishEffect(0.9f)
-            updateWidget()
-            delay(2000)
 
-            if (catState == State.JUMPING || catState == State.ANGRY) {
-                catState = State.IDLE
-                unityMessage = null
-                currentStatusIconRes = null
-                updateWidget()
-            }
+            // โดดหนีหลายรอบ รอบแรกโดดไปฝั่งตรงข้ามกับตัวเจ้าปัญหา
+            startJumpAround(
+                jumps = Random.nextInt(8, 13),
+                message = if (isSnake) "ไปให้พ้นนน!" else "อย๊ากกก!",
+                iconRes = R.drawable.ic_status_angry,
+                fleeFromX = x
+            )
         }
     }
+
+    // ---------------- Chase (ชวนเล่นจับ) event ----------------
+
+    private fun cancelChase() {
+        chaseJob?.cancel(); chaseJob = null
+        chaseActive = false
+        chaseCaught = false
+    }
+
+    private fun startChaseEvent() {
+        cancelChase()
+        actionJob?.cancel(); jumpJob?.cancel(); itemFallJob?.cancel()
+        activeItem = null
+        chaseActive = true
+        chaseHits = 0
+
+        chaseJob = scope.launch {
+            // 1) แมวนอนชวน
+            catState = State.CHASE_INVITE
+            unityMessage = chaseInviteMsgs.random()
+            currentStatusIconRes = R.drawable.ic_status_heart
+            playMeowSound()
+            triggerSquishEffect(0.5f)
+            updateWidget()
+            delay(2500)
+
+            // 2) เล่น 5 รอบ
+            for (round in 1..CHASE_ROUNDS) {
+                chaseCaught = false
+                catState = State.CHASE_HOP
+                unityMessage = "รอบ $round/$CHASE_ROUNDS จับเราให้ได้สิ~"
+                currentStatusIconRes = R.drawable.ic_status_heart
+                updateWidget()
+
+                var hops = 0
+                while (hops < 3 && !chaseCaught) {
+                    chaseHopOnce()
+                    hops++
+                }
+
+                if (chaseCaught) {
+                    chaseHits++
+                    unityMessage = chaseCaughtMsgs.random()
+                    currentStatusIconRes = R.drawable.ic_status_heart
+                    playMeowSound()
+                    triggerSquishEffect(1f)
+                } else {
+                    unityMessage = chaseTauntMsgs.random()
+                    currentStatusIconRes = R.drawable.ic_status_angry
+                    playMeowSound()
+                    triggerSquishEffect(0.6f)
+                }
+                updateWidget()
+                delay(1500)
+            }
+
+            // 3) ครบรอบ แมวเหนื่อย
+            catState = State.CHASE_INVITE
+            unityMessage = when {
+                chaseHits >= 4 -> "เหนื่อยแล้ววว... จับเก่งจริงๆ หอบๆ"
+                chaseHits >= 1 -> "เหนื่อยแล้ว ไม่ไหวแล้วน้า~ หอบๆ"
+                else -> "เหนื่อยแล้ว... แต่จับเราไม่ได้เลยนะ! หอบๆ"
+            }
+            currentStatusIconRes = R.drawable.ic_status_zzz
+            energy = (energy - 30).coerceAtLeast(0)
+            boredom = (boredom - 60).coerceAtLeast(0)
+            hunger = (hunger + 15).coerceAtMost(100)
+            saveStatsToPrefs()
+            updateWidget()
+            delay(4500)
+
+            chaseActive = false
+            catState = State.IDLE
+            unityMessage = null
+            currentStatusIconRes = null
+            updateWidget()
+        }
+    }
+
+    // โดด 1 ครั้ง แล้วหยุดพักตรงจุดที่ลง (ช่วงนี้จับง่ายสุด) ถ้าถูกจับจะหยุดทันที
+    private suspend fun chaseHopOnce() {
+        val (maxX, maxY) = getMaxBounds()
+        val jumpHeight = (60 * resources.displayMetrics.density).toInt()
+        val startX = catX
+        val landX = if (maxX > 0) Random.nextInt(0, maxX + 1) else 0
+        val landY = catY.coerceIn(0, maxY)
+
+        for (s in 1..8) {
+            if (chaseCaught) return
+            val p = s / 8f
+            catX = (startX + (landX - startX) * p).toInt().coerceIn(0, maxX)
+            catY = (landY + (jumpHeight * kotlin.math.sin(p * Math.PI)).toInt()).coerceIn(0, maxY)
+            updateWidget()
+            delay(60)
+        }
+        catX = landX.coerceIn(0, maxX)
+        catY = landY
+        triggerSquishEffect(0.6f)
+        updateWidget()
+        delay(350)
+    }
+
+    // แตะโดนแมว (จับได้เฉพาะตอนแมวโดดอยู่)
+    private fun handleChaseCatTap() {
+        if (catState == State.CHASE_HOP) chaseCaught = true
+    }
+
+    // แตะพลาด (โดนพื้นหลัง) แมวเยาะเย้ยทันที
+    private fun handleChaseMissTap() {
+        if (catState != State.CHASE_HOP) return
+        unityMessage = chaseTauntMsgs.random()
+        currentStatusIconRes = R.drawable.ic_status_angry
+        playMeowSound()
+        updateWidget()
+    }
+
+    // ---------------- Animation loop ----------------
 
     private fun startAnimationLoop() {
         serviceJob = scope.launch {
@@ -713,7 +843,7 @@ class CatWidgetService : Service() {
                         catState = State.WALKING
                         val (maxX, maxY) = getMaxBounds()
                         targetX = if (maxX > 0) Random.nextInt(0, maxX + 1) else 0
-                        targetY = if (maxY > 0) Random.nextInt(0, maxY) else 0
+                        targetY = if (maxY > 0) Random.nextInt(0, maxY + 1) else 0
                         playMeowSound()
                     } else if (rand in 5..35) {
                         val randomStatusState = pickWeightedIdleState()
@@ -723,11 +853,21 @@ class CatWidgetService : Service() {
                             val statusInfo = statusConfigMap[randomStatusState]
                             performStateAction(randomStatusState, 4000L, statusInfo?.message, statusInfo?.iconRes)
                         }
+                    } else if (rand in 36..40 && energy > 40 && hunger < 70) {
+                        // สุ่มเริ่มเกมชวนเล่นจับเอง
+                        startChaseEvent()
                     }
                 } else if (catState == State.WALKING || catState == State.WALKING_TO_CENTER || catState == State.WALKING_TO_ITEM) {
+                    // ขอบเขตคงที่ + clamp เป้าหมายและตำแหน่งจริงทุก tick กันแมวหลุดขอบ
+                    val (maxX, maxY) = getMaxBounds()
+                    targetX = targetX.coerceIn(0, maxX)
+                    targetY = targetY.coerceIn(0, maxY)
+
                     val step = 5
                     if (catX < targetX) catX += step else if (catX > targetX) catX -= step
                     if (catY < targetY) catY += step else if (catY > targetY) catY -= step
+                    catX = catX.coerceIn(0, maxX)
+                    catY = catY.coerceIn(0, maxY)
 
                     if (kotlin.math.abs(catX - targetX) < step && kotlin.math.abs(catY - targetY) < step) {
                         if (catState == State.WALKING) catState = State.IDLE
@@ -812,8 +952,8 @@ class CatWidgetService : Service() {
         return inSampleSize
     }
 
-    private fun getCatSizePxForState(state: State): Pair<Int, Int> {
-        val density = resources.displayMetrics.density
+    // ขนาดฐานของแมว (dp) ตามความกว้าง widget  <<< แก้ขนาดแมวรวมที่นี่ >>>
+    private fun getBaseCatSizeDp(): Int {
         val appWidgetManager = AppWidgetManager.getInstance(this)
         val componentName = ComponentName(this, CatWidgetProvider::class.java)
         val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
@@ -826,27 +966,50 @@ class CatWidgetService : Service() {
             if (w > 0) currentWidthDp = w
         }
 
-        val baseCatSizeDp = when {
-            currentWidthDp < 200 -> 80
-            currentWidthDp > 350 -> 180
-            else -> 120
+        return when {
+            currentWidthDp < 200 -> 60    // widget เล็ก
+            currentWidthDp > 350 -> 130   // widget ใหญ่
+            else -> 90                    // widget กลาง
         }
+    }
 
-        val (widthDp, heightDp) = when (state) {
+    // ขนาด (dp) ของแต่ละท่า โดยยังไม่คูณ squish  <<< แก้ขนาดรายท่าที่นี่ >>>
+    private fun getCatSizeDpForState(state: State): Pair<Int, Int> {
+        val baseCatSizeDp = getBaseCatSizeDp()
+        return when (state) {
             State.IDLE, State.WALKING, State.WALKING_TO_CENTER, State.WALKING_TO_ITEM, State.NAP, State.ANGRY, State.SNUGGLE, State.HUNGRY, State.ITCHY, State.TRAIN_IDLE, State.WALK_COUNTING -> Pair(baseCatSizeDp, baseCatSizeDp)
-            State.EATING -> Pair(baseCatSizeDp + 50, baseCatSizeDp + 50)
-            State.STRETCH -> Pair(baseCatSizeDp + 30, baseCatSizeDp)
-            State.PLAYING -> Pair(baseCatSizeDp + 10, baseCatSizeDp + 10)
-            State.WAND_PLAY -> Pair(150, 150)
-            State.BOX_HIDDEN, State.BOX_EMERGE -> Pair(baseCatSizeDp + 40, baseCatSizeDp + 40)
-            State.GROOMING -> Pair(baseCatSizeDp + 10, baseCatSizeDp + 10)
-            State.JUMPING -> Pair(baseCatSizeDp + 20, baseCatSizeDp + 20)
-            State.ROLLING -> Pair(baseCatSizeDp + 35, baseCatSizeDp + 10)
+            State.EATING -> Pair(baseCatSizeDp + 25, baseCatSizeDp + 25)
+            State.STRETCH -> Pair(baseCatSizeDp + 15, baseCatSizeDp)
+            State.PLAYING -> Pair(baseCatSizeDp + 5, baseCatSizeDp + 5)
+            State.WAND_PLAY -> Pair(baseCatSizeDp + 30, baseCatSizeDp + 30)
+            State.BOX_HIDDEN, State.BOX_EMERGE -> Pair(baseCatSizeDp + 20, baseCatSizeDp + 20)
+            State.GROOMING -> Pair(baseCatSizeDp + 5, baseCatSizeDp + 5)
+            State.JUMPING -> Pair(baseCatSizeDp + 10, baseCatSizeDp + 10)
+            State.ROLLING -> Pair(baseCatSizeDp + 15, baseCatSizeDp + 5)
+            State.CHASE_INVITE -> Pair(baseCatSizeDp + 15, baseCatSizeDp)
+            State.CHASE_HOP -> Pair(baseCatSizeDp + 10, baseCatSizeDp + 10)
         }
+    }
 
+    private fun getCatSizePxForState(state: State): Pair<Int, Int> {
+        val density = resources.displayMetrics.density
+        val (widthDp, heightDp) = getCatSizeDpForState(state)
         val widthPx = (widthDp * density * squishScaleX).toInt().coerceAtLeast(1)
         val heightPx = (heightDp * density * squishScaleY).toInt().coerceAtLeast(1)
         return Pair(widthPx, heightPx)
+    }
+
+    // ขนาดที่ใช้คำนวณขอบเขต: ไม่ผูกกับ squish และไม่เล็กกว่าท่าเดิน/กระโดด (base+10)
+    // เผื่อ squish ด้วย SAFETY_SCALE ทำให้ขอบเขตนิ่งระหว่างเดิน
+    private val SAFETY_SCALE = 1.1f
+
+    private fun getStableCatSizePx(): Pair<Int, Int> {
+        val density = resources.displayMetrics.density
+        val (curW, curH) = getCatSizeDpForState(catState)
+        val (refW, refH) = getCatSizeDpForState(State.JUMPING)
+        val widthPx = (maxOf(curW, refW) * SAFETY_SCALE * density).toInt().coerceAtLeast(1)
+        val heightPx = (maxOf(curH, refH) * SAFETY_SCALE * density).toInt().coerceAtLeast(1)
+        return widthPx to heightPx
     }
 
     private fun triggerSquishEffect(intensity: Float = 1f) {
@@ -893,6 +1056,8 @@ class CatWidgetService : Service() {
                 State.TRAIN_IDLE -> trainIdleFrames
                 State.JUMPING -> jumpFrames
                 State.ROLLING -> rollFrames
+                State.CHASE_INVITE -> napFrames
+                State.CHASE_HOP -> jumpFrames
                 else -> idleFrames
             }
 
@@ -1024,22 +1189,36 @@ class CatWidgetService : Service() {
             val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
             val maxHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
 
-            if (minWidth > 0 || maxWidth > 0) widthDp = maxOf(minWidth, maxWidth, 1)
-            if (minHeight > 0 || maxHeight > 0) heightDp = maxOf(minHeight, maxHeight, 1)
+            // ใช้ค่า MIN ก่อน (ขนาดที่การันตีว่ามองเห็นได้เสมอ) ถ้าไม่มีค่อยใช้ MAX
+            widthDp = when {
+                minWidth > 0 -> minWidth
+                maxWidth > 0 -> maxWidth
+                else -> widthDp
+            }
+            heightDp = when {
+                minHeight > 0 -> minHeight
+                maxHeight > 0 -> maxHeight
+                else -> heightDp
+            }
         }
 
         val density = resources.displayMetrics.density
         return WidgetBounds(widthPx = (widthDp * density).toInt().coerceAtLeast(1), heightPx = (heightDp * density).toInt().coerceAtLeast(1))
     }
 
+    // ขอบเขตการเดิน/กระโดดของแมว  <<< ชนขอบขวา: ปรับ marginRightPx >>>
     private fun getMaxBounds(widgetId: Int? = null): Pair<Int, Int> {
         val bounds = getWidgetBounds(widgetId)
-        val (catWidthPx, catHeightPx) = getCatSizePxForState(catState)
+        val (catWidthPx, catHeightPx) = getStableCatSizePx()
         val density = resources.displayMetrics.density
-        val marginPx = (8 * density).toInt()
 
-        val maxX = (bounds.widthPx - catWidthPx - marginPx).coerceAtLeast(0)
-        val maxY = (bounds.heightPx - catHeightPx - marginPx).coerceAtLeast(0)
+        val systemInsetXPx = (16 * density).toInt()  // margin ระบบของ widget (ซ้าย+ขวา)
+        val marginRightPx = (16 * density).toInt()   // เผื่อเพิ่มฝั่งขวา ยังชนก็เพิ่มเลขนี้
+        val marginYPx = (8 * density).toInt()
+
+        val usableWidthPx = bounds.widthPx - systemInsetXPx
+        val maxX = (usableWidthPx - catWidthPx - marginRightPx).coerceAtLeast(0)
+        val maxY = (bounds.heightPx - catHeightPx - marginYPx).coerceAtLeast(0)
         return maxX to maxY
     }
 
@@ -1052,11 +1231,8 @@ class CatWidgetService : Service() {
 
         val maxX = (bounds.widthPx - itemSizePx - marginPx).coerceAtLeast(0)
 
-        // *** บังคับความสูงจำลอง (Virtual Height) ให้มีความสูงอย่างน้อย 350dp เสมอ ***
-        // ต่อให้ระบบส่งความสูงมาน้อยแค่ไหน ก็จะบังคับให้มีพื้นที่ให้ไอเทมร่วงลงมาจากข้างบนจนถึงพื้นล่าง
+        // บังคับความสูงจำลองอย่างน้อย 350dp ให้ไอเทมมีระยะร่วงลงมาถึงพื้น
         val forcedHeightPx = maxOf(bounds.heightPx, (350 * density).toInt())
-
-        // ให้ maxY ไปหยุดอยู่ที่โซนพื้นด้านล่างสุด (หักขนาดไอเทมออก)
         val maxY = (forcedHeightPx - itemSizePx - (2 * marginPx)).coerceAtLeast(0)
 
         return maxX to maxY
@@ -1074,6 +1250,7 @@ class CatWidgetService : Service() {
     }
 
     private fun startWalkCountTest() {
+        cancelChase()
         walkTestJob?.cancel(); actionJob?.cancel()
         currentSteps = 0; walkTargetSteps = 50
         actionJob = scope.launch {
@@ -1118,29 +1295,43 @@ class CatWidgetService : Service() {
         updateWidget()
     }
 
-    private fun startJumpAround() {
+    // โดดไปมา (ใช้ทั้งโดดเล่นปกติ และโดดหนีแมงสาบ/งู)
+    private fun startJumpAround(
+        jumps: Int = 6,
+        message: String = "โดดไปมา~",
+        iconRes: Int? = null,
+        fleeFromX: Int? = null
+    ) {
+        cancelChase()
         jumpJob?.cancel(); actionJob?.cancel()
         jumpJob = scope.launch {
             catState = State.JUMPING
-            unityMessage = "โดดไปมา~"
-            currentStatusIconRes = null
+            unityMessage = message
+            currentStatusIconRes = iconRes
             updateWidget()
 
             val (maxX, maxY) = getMaxBounds()
             val jumpHeight = (80 * resources.displayMetrics.density).toInt()
             val jumpDurationMs = 300L
 
-            repeat(6) {
-                if (catState != State.JUMPING) return@repeat
+            for (i in 0 until jumps) {
+                if (catState != State.JUMPING) return@launch
                 val startX = catX
-                val landX = if (maxX > 0) Random.nextInt(0, maxX + 1) else 0
+                val landX = when {
+                    maxX <= 0 -> 0
+                    // รอบแรก: หนีไปฝั่งตรงข้ามกับจุดที่ของตก
+                    i == 0 && fleeFromX != null ->
+                        if (fleeFromX < maxX / 2) Random.nextInt(maxX / 2, maxX + 1)
+                        else Random.nextInt(0, maxX / 2 + 1)
+                    else -> Random.nextInt(0, maxX + 1)
+                }
                 val landY = catY
 
                 playMeowSound()
                 for (s in 1..4) {
                     if (catState != State.JUMPING) return@launch
                     val progress = s.toFloat() / 4
-                    catX = (startX + (landX - startX) * progress * 0.5f).toInt()
+                    catX = (startX + (landX - startX) * progress * 0.5f).toInt().coerceIn(0, maxX)
                     catY = (landY + (jumpHeight * kotlin.math.sin(progress * Math.PI)).toInt()).coerceIn(0, maxY + jumpHeight)
                     updateWidget()
                     delay(jumpDurationMs / 8)
@@ -1148,7 +1339,7 @@ class CatWidgetService : Service() {
                 for (s in 1..4) {
                     if (catState != State.JUMPING) return@launch
                     val progress = s.toFloat() / 4
-                    catX = (startX + (landX - startX) * (0.5f + progress * 0.5f)).toInt()
+                    catX = (startX + (landX - startX) * (0.5f + progress * 0.5f)).toInt().coerceIn(0, maxX)
                     catY = (landY + (jumpHeight * kotlin.math.sin((1 - progress) * Math.PI)).toInt()).coerceIn(0, maxY + jumpHeight)
                     updateWidget()
                     delay(jumpDurationMs / 8)
@@ -1158,12 +1349,13 @@ class CatWidgetService : Service() {
                 catY = landY.coerceIn(0, maxY)
                 triggerSquishEffect(0.9f)
                 updateWidget()
-                delay(150)
+                delay(150) // พักระหว่างรอบ ลดเลขนี้ถ้าอยากให้โดดถี่ขึ้น
             }
 
             if (catState == State.JUMPING) {
                 catState = State.IDLE
                 unityMessage = null
+                currentStatusIconRes = null
                 updateWidget()
             }
         }
@@ -1174,6 +1366,7 @@ class CatWidgetService : Service() {
         if (catState == State.JUMPING) {
             catState = State.IDLE
             unityMessage = null
+            currentStatusIconRes = null
             updateWidget()
         }
     }
@@ -1199,6 +1392,7 @@ class CatWidgetService : Service() {
         super.onDestroy()
         serviceJob?.cancel(); actionJob?.cancel(); walkTestJob?.cancel()
         itemFallJob?.cancel(); jumpJob?.cancel(); squishJob?.cancel()
+        chaseJob?.cancel()
         eatPlayer?.release(); clickPlayer?.release()
     }
 }
