@@ -23,6 +23,7 @@ class CatWidgetProvider : AppWidgetProvider() {
         const val ACTION_SYNC_STATS = "com.example.widgettesting.SYNC_STATS"
         const val ACTION_STATS_UPDATED_TO_UNITY = "com.example.widgettesting.STATS_UPDATED_TO_UNITY"
         const val ACTION_TEST_JUMP = "com.example.widgettesting.ACTION_TEST_JUMP"
+        const val ACTION_TEST_CHASE = "com.example.widgettesting.ACTION_TEST_CHASE"
     }
 
     override fun onUpdate(
@@ -48,7 +49,8 @@ class CatWidgetProvider : AppWidgetProvider() {
             intent.action == ACTION_RESET ||
             intent.action == ACTION_APP_FOCUS_CHANGED ||
             intent.action == ACTION_SYNC_STATS ||
-            intent.action == ACTION_TEST_JUMP) {
+            intent.action == ACTION_TEST_JUMP ||
+            intent.action == ACTION_TEST_CHASE) { // <-- เพิ่ม ACTION_TEST_CHASE ตรงนี้แล้ว
 
             startCatService(context, intent)
         }

@@ -102,41 +102,19 @@
 
     </FrameLayout>
 
-    <!-- 5. Control Buttons (test buttons ถูก comment ไว้เหมือนเดิม) -->
-    <!--    <Button-->
-    <!--        android:id="@+id/btnTest"-->
-    <!--        android:layout_width="wrap_content"-->
-    <!--        android:layout_height="wrap_content"-->
-    <!--        android:layout_gravity="bottom|start"-->
-    <!--        android:text="Test Hungry"-->
-    <!--        android:textSize="8sp"-->
-    <!--        android:padding="0.1dp"-->
-    <!--        android:backgroundTint="#00000000"-->
-    <!--        android:textColor="#FF000000" />-->
-
-    <!--    <Button-->
-    <!--        android:id="@+id/btnReset"-->
-    <!--        android:layout_width="wrap_content"-->
-    <!--        android:layout_height="wrap_content"-->
-    <!--        android:layout_gravity="bottom|end"-->
-    <!--        android:text="Reset"-->
-    <!--        android:textSize="8sp"-->
-    <!--        android:padding="0.1dp"-->
-    <!--        android:backgroundTint="#00000000"-->
-    <!--        android:textColor="#FF000000" />-->
-
-    <!--    <Button-->
-    <!--        android:id="@+id/btnTestWalk"-->
-    <!--        android:layout_width="wrap_content"-->
-    <!--        android:layout_height="wrap_content"-->
-    <!--        android:layout_gravity="top|end"-->
-    <!--        android:layout_marginTop="40dp"-->
-    <!--        android:layout_marginEnd="8dp"-->
-    <!--        android:text="Test Walk"-->
-    <!--        android:textSize="8sp"-->
-    <!--        android:padding="0.1dp"-->
-    <!--        android:backgroundTint="#00000000"-->
-    <!--        android:textColor="#FF000000" />-->
+    <!-- 5. Control Buttons (ย้ายไว้ชั้นบนสุด เพื่อไม่ให้โดน catContainer บัง) -->
+    <Button
+        android:id="@+id/btnTestChase"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="40dp"
+        android:layout_marginEnd="8dp"
+        android:text="Test Chase"
+        android:textSize="10sp"
+        android:padding="4dp"
+        android:backgroundTint="#88000000"
+        android:textColor="#FFFFFF" />
 
     <ImageButton
         android:id="@+id/btnMute"
