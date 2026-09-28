@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:scaleType="fitXY"
-        android:src="@drawable/realbg"/>
+        android:src="@drawable/minimal_bg"/>
 
     <!-- 2. Tap grid container for background clicks -->
     <LinearLayout
@@ -124,5 +124,16 @@
         android:layout_margin="8dp"
         android:background="@android:color/transparent"
         android:src="@drawable/ic_volume_up" />
+
+    <ImageView
+        android:id="@+id/imgJumpscare"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:visibility="gone"
+        android:contentDescription="Jumpscare Cat Face"
+        />
+
+
 
 </FrameLayout>
