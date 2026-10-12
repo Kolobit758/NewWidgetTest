@@ -29,10 +29,167 @@
             android:id="@+id/itemImage"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="top|start"
+            android:layout_gravity="bottom|start"
             android:scaleType="fitCenter"
             android:visibility="gone"
             android:contentDescription="item" />
+    </FrameLayout>
+
+    <!-- 3.5. Item Selection Drawer Overlay -->
+    <FrameLayout
+        android:id="@+id/itemDrawerRoot"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:id="@+id/drawerTabContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end|center_vertical"
+            android:layout_marginEnd="0dp"
+            android:background="@drawable/drawer_tab_paw_bg"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:elevation="4dp">
+
+            <ImageView
+                android:id="@+id/imgIcon"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_cat_paw_white"
+                android:scaleType="fitCenter"
+                android:contentDescription="cat paw drawer tab" />
+
+        </LinearLayout>
+
+        <!-- Expanded Drawer Panel Container (ตั้ง Width ให้คงที่ 64dp) -->
+        <FrameLayout
+            android:id="@+id/drawerPanelContainer"
+            android:layout_width="64dp"
+            android:layout_height="180dp"
+            android:layout_gravity="end|center_vertical"
+            android:layout_marginRight="5dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/drawerBackdrop"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitXY"
+                android:src="@drawable/custom_drawer_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="drawer backdrop" />
+
+            <!-- 5 ช่องไอเทมเรียงตั้ง -->
+            <LinearLayout
+                android:id="@+id/drawerContentContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
+
+                <!-- 1. Wand (บอล) -->
+                <LinearLayout
+                    android:id="@+id/btnItemWand"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center">
+                    <ImageView
+                        android:id="@+id/itemIconWand"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:padding="5dp"
+                        android:background="@drawable/drawer_item_slot_bg"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/yarn" />
+                </LinearLayout>
+
+                <!-- 2. Box (กล่อง) -->
+                <LinearLayout
+                    android:id="@+id/btnItemBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center">
+                    <ImageView
+                        android:id="@+id/itemIconBox"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:padding="5dp"
+                        android:background="@drawable/drawer_item_slot_bg"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/cartonbox" />
+                </LinearLayout>
+
+                <!-- 3. Food (อาหาร) -->
+                <LinearLayout
+                    android:id="@+id/btnItemFood"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center">
+                    <ImageView
+                        android:id="@+id/itemIconFood"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:padding="5dp"
+                        android:background="@drawable/drawer_item_slot_bg"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/bowl" />
+                </LinearLayout>
+
+                <!-- 4. Cockroach (แมลงสาบ) -->
+                <LinearLayout
+                    android:id="@+id/btnItemCockroach"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center">
+                    <ImageView
+                        android:id="@+id/itemIconCockroach"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:padding="5dp"
+                        android:background="@drawable/drawer_item_slot_bg"
+                        android:scaleType="fitCenter" />
+                </LinearLayout>
+
+                <!-- 5. Snake (งู) -->
+                <LinearLayout
+                    android:id="@+id/btnItemSnake"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center">
+                    <ImageView
+                        android:id="@+id/itemIconSnake"
+                        android:layout_width="30dp"
+                        android:layout_height="30dp"
+                        android:padding="5dp"
+                        android:background="@drawable/drawer_item_slot_bg"
+                        android:scaleType="fitCenter" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </FrameLayout>
+
     </FrameLayout>
 
     <!-- 4. Interactive Cat & Status Speech Bubble Container -->
@@ -50,7 +207,7 @@
             android:clipChildren="false"
             android:clipToPadding="false">
 
-            <!-- Status Speech Bubble Container (Icon + Text) -->
+            <!-- Status Speech Bubble Container -->
             <LinearLayout
                 android:id="@+id/statusBubbleContainer"
                 android:layout_width="wrap_content"
@@ -102,20 +259,7 @@
 
     </FrameLayout>
 
-    <!-- 5. Control Buttons (ย้ายไว้ชั้นบนสุด เพื่อไม่ให้โดน catContainer บัง) -->
-    <Button
-        android:id="@+id/btnTestChase"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="40dp"
-        android:layout_marginEnd="8dp"
-        android:text="Test Chase"
-        android:textSize="10sp"
-        android:padding="4dp"
-        android:backgroundTint="#88000000"
-        android:textColor="#FFFFFF" />
-
+    <!-- 5. Control Buttons -->
     <ImageButton
         android:id="@+id/btnMute"
         android:layout_width="32dp"
@@ -131,9 +275,20 @@
         android:layout_height="match_parent"
         android:scaleType="fitXY"
         android:visibility="gone"
-        android:contentDescription="Jumpscare Cat Face"
-        />
+        android:contentDescription="Jumpscare Cat Face" />
 
-
+    <!-- 6. ปุ่มทดสอบเปลี่ยนพื้นหลัง (ตอน release เปลี่ยนเป็น visibility="gone") -->
+    <Button
+        android:id="@+id/btnTestBg"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_margin="8dp"
+        android:background="@drawable/btn_test_bg"
+        android:text="BG"
+        android:textSize="10sp"
+        android:textColor="#FFFFFF"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="4dp" />
 
 </FrameLayout>

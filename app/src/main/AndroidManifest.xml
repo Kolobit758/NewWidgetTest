@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -15,7 +15,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.WidgetTesting">
-        
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -39,26 +39,14 @@
                 android:resource="@xml/cat_widget_info" />
         </receiver>
 
-        <receiver
-            android:name=".CatGlanceWidgetReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="com.example.widgettesting.UNITY_COMMAND" />
-                <action android:name="com.example.widgettesting.APP_FOCUS_CHANGED" />
-                <action android:name="com.example.widgettesting.SYNC_STATS" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/cat_widget_info" />
-        </receiver>
-
         <service
             android:name=".CatWidgetService"
-            android:foregroundServiceType="dataSync"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="animated_widget_pet" />
+        </service>
 
     </application>
-
-
 </manifest>
