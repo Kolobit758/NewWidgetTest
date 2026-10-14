@@ -2,7 +2,8 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#00000000">
+    android:background="@drawable/widget_rounded_background"
+    android:clipToOutline="true">
 
     <!-- 1. Background -->
     <ImageView
@@ -56,21 +57,21 @@
 
             <ImageView
                 android:id="@+id/imgIcon"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
                 android:src="@drawable/ic_cat_paw_white"
                 android:scaleType="fitCenter"
                 android:contentDescription="cat paw drawer tab" />
 
         </LinearLayout>
 
-        <!-- Expanded Drawer Panel Container (ตั้ง Width ให้คงที่ 64dp) -->
+        <!-- Expanded drawer panel -->
         <FrameLayout
             android:id="@+id/drawerPanelContainer"
-            android:layout_width="64dp"
-            android:layout_height="180dp"
+            android:layout_width="@dimen/drawer_panel_width"
+            android:layout_height="@dimen/drawer_panel_height"
             android:layout_gravity="end|center_vertical"
-            android:layout_marginRight="5dp"
+            android:layout_marginEnd="@dimen/drawer_edge_inset"
             android:visibility="gone">
 
             <ImageView
@@ -91,8 +92,8 @@
                 android:orientation="vertical"
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp">
+                android:paddingTop="@dimen/drawer_vertical_padding"
+                android:paddingBottom="@dimen/drawer_vertical_padding">
 
                 <!-- 1. Wand (บอล) -->
                 <LinearLayout
@@ -105,9 +106,9 @@
                     android:gravity="center">
                     <ImageView
                         android:id="@+id/itemIconWand"
-                        android:layout_width="30dp"
-                        android:layout_height="30dp"
-                        android:padding="5dp"
+                        android:layout_width="@dimen/drawer_slot_size"
+                        android:layout_height="@dimen/drawer_slot_size"
+                        android:padding="4dp"
                         android:background="@drawable/drawer_item_slot_bg"
                         android:scaleType="fitCenter"
                         android:src="@drawable/yarn" />
@@ -124,9 +125,9 @@
                     android:gravity="center">
                     <ImageView
                         android:id="@+id/itemIconBox"
-                        android:layout_width="30dp"
-                        android:layout_height="30dp"
-                        android:padding="5dp"
+                        android:layout_width="@dimen/drawer_slot_size"
+                        android:layout_height="@dimen/drawer_slot_size"
+                        android:padding="4dp"
                         android:background="@drawable/drawer_item_slot_bg"
                         android:scaleType="fitCenter"
                         android:src="@drawable/cartonbox" />
@@ -143,9 +144,9 @@
                     android:gravity="center">
                     <ImageView
                         android:id="@+id/itemIconFood"
-                        android:layout_width="30dp"
-                        android:layout_height="30dp"
-                        android:padding="5dp"
+                        android:layout_width="@dimen/drawer_slot_size"
+                        android:layout_height="@dimen/drawer_slot_size"
+                        android:padding="4dp"
                         android:background="@drawable/drawer_item_slot_bg"
                         android:scaleType="fitCenter"
                         android:src="@drawable/bowl" />
@@ -162,9 +163,9 @@
                     android:gravity="center">
                     <ImageView
                         android:id="@+id/itemIconCockroach"
-                        android:layout_width="30dp"
-                        android:layout_height="30dp"
-                        android:padding="5dp"
+                        android:layout_width="@dimen/drawer_slot_size"
+                        android:layout_height="@dimen/drawer_slot_size"
+                        android:padding="4dp"
                         android:background="@drawable/drawer_item_slot_bg"
                         android:scaleType="fitCenter" />
                 </LinearLayout>
@@ -180,9 +181,9 @@
                     android:gravity="center">
                     <ImageView
                         android:id="@+id/itemIconSnake"
-                        android:layout_width="30dp"
-                        android:layout_height="30dp"
-                        android:padding="5dp"
+                        android:layout_width="@dimen/drawer_slot_size"
+                        android:layout_height="@dimen/drawer_slot_size"
+                        android:padding="4dp"
                         android:background="@drawable/drawer_item_slot_bg"
                         android:scaleType="fitCenter" />
                 </LinearLayout>
@@ -198,35 +199,43 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <LinearLayout
+        <FrameLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|start"
-            android:orientation="vertical"
-            android:gravity="start"
             android:clipChildren="false"
             android:clipToPadding="false">
+
+            <ImageView
+                android:id="@+id/catImage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|start"
+                android:scaleType="fitCenter"
+                android:src="@drawable/cat_idle"
+                android:clickable="true"
+                android:focusable="true"
+                android:contentDescription="cat" />
 
             <!-- Status Speech Bubble Container -->
             <LinearLayout
                 android:id="@+id/statusBubbleContainer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="bottom|start"
                 android:orientation="horizontal"
                 android:gravity="center"
-                android:background="@drawable/bubble_bg"
+                android:background="@drawable/widget_status_background"
                 android:visibility="gone"
-                android:layout_marginBottom="8dp"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="6dp"
+                android:padding="3dp"
                 android:clickable="true"
                 android:focusable="true"
-                android:elevation="6dp">
+                android:elevation="2dp">
 
                 <ImageView
                     android:id="@+id/statusIcon"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
                     android:scaleType="fitCenter"
                     android:visibility="gone"
                     android:contentDescription="status icon" />
@@ -245,28 +254,21 @@
                     android:layout_marginStart="4dp" />
             </LinearLayout>
 
-            <ImageView
-                android:id="@+id/catImage"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:scaleType="fitCenter"
-                android:src="@drawable/cat_idle"
-                android:clickable="true"
-                android:focusable="true"
-                android:contentDescription="cat" />
-
-        </LinearLayout>
+        </FrameLayout>
 
     </FrameLayout>
 
     <!-- 5. Control Buttons -->
     <ImageButton
         android:id="@+id/btnMute"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_gravity="top|end"
-        android:layout_margin="8dp"
-        android:background="@android:color/transparent"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="56dp"
+        android:layout_marginTop="8dp"
+        android:padding="9dp"
+        android:background="@drawable/widget_control_background"
+        android:contentDescription="Toggle cat sounds"
         android:src="@drawable/ic_volume_up" />
 
     <ImageView
@@ -277,18 +279,16 @@
         android:visibility="gone"
         android:contentDescription="Jumpscare Cat Face" />
 
-    <!-- 6. ปุ่มทดสอบเปลี่ยนพื้นหลัง (ตอน release เปลี่ยนเป็น visibility="gone") -->
-    <Button
+    <!-- Background picker -->
+    <ImageButton
         android:id="@+id/btnTestBg"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
         android:layout_gravity="top|start"
         android:layout_margin="8dp"
-        android:background="@drawable/btn_test_bg"
-        android:text="BG"
-        android:textSize="10sp"
-        android:textColor="#FFFFFF"
-        android:paddingHorizontal="10dp"
-        android:paddingVertical="4dp" />
+        android:background="@drawable/widget_control_background"
+        android:src="@drawable/ic_widget_theme"
+        android:contentDescription="Choose widget background"
+        android:padding="9dp" />
 
 </FrameLayout>

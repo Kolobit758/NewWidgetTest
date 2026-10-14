@@ -11,6 +11,14 @@ import android.widget.RemoteViews
 class CatWidgetProvider : AppWidgetProvider() {
 
     companion object {
+        fun bindThemePicker(context: Context, views: RemoteViews, widgetId: Int) {
+            val intent = Intent(context, WidgetThemePickerActivity::class.java)
+            val pendingIntent = PendingIntent.getActivity(
+                context, widgetId, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            views.setOnClickPendingIntent(R.id.btnTestBg, pendingIntent)
+        }
         const val ACTION_TAP_CAT = "com.example.catiwidget.ACTION_TAP_CAT"
         const val ACTION_TAP_STATUS = "com.example.widgettesting.ACTION_TAP_STATUS"
         const val ACTION_FEED = "com.example.catiwidget.ACTION_FEED"
@@ -68,7 +76,7 @@ class CatWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.catImage, pi(context, id, ACTION_TAP_CAT))
             views.setOnClickPendingIntent(R.id.catiBackground, pi(context, id, ACTION_TAP_WIDGET))
             views.setOnClickPendingIntent(R.id.btnMute, pi(context, id, ACTION_TOGGLE_MUTE))
-            views.setOnClickPendingIntent(R.id.btnTestBg, pi(context, id, ACTION_TEST_BACKGROUND))
+            bindThemePicker(context, views, id)
             views.setOnClickPendingIntent(
                 R.id.drawerTabContainer,
                 pi(context, id, ACTION_TOGGLE_ITEM_DRAWER)

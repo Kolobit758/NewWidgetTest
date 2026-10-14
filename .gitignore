@@ -13,3 +13,11 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Local editor state and generated diagnostics
+/.idea/claudeCodeEditorTabs.xml
+/.kotlin/
+
+# Widget test screenshots
+/reaction_*.png
+/widget_*.png

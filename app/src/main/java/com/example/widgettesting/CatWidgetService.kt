@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 class CatWidgetService : Service() {
@@ -45,8 +46,9 @@ class CatWidgetService : Service() {
     private var lastToyChooseTime = 0L
     private val TOY_CHOOSE_COOLDOWN_MS = 20000L
 
-    // ความกว้างของแถบ item drawer แนวตั้ง (ต้องตรงกับ layout XML)
-    private val DRAWER_PANEL_WIDTH_DP = 64
+    // Share panel width with the layout and slide animation.
+    private val drawerPanelWidthPx: Int
+        get() = resources.getDimensionPixelSize(R.dimen.drawer_panel_width)
 
     private var isFirstRun = true
     private var catState = State.IDLE
@@ -61,10 +63,87 @@ class CatWidgetService : Service() {
     // Message and Status Tracking
     private var unityMessage: String? = null
     private var currentStatusIconRes: Int? = null
+    private var interactionReactionIconRes: Int? = null
+    private var interactionReactionJob: Job? = null
+    private val visibleCatBoundsCache = android.util.LruCache<String, android.graphics.Rect>(128)
+    private val catFloorPaddingCache = android.util.LruCache<String, Int>(64)
+    private val CAT_FLOOR_GAP_DP = 6f
+
+    // Head positions within the visible artwork, before horizontal mirroring.
+    // Stretching raises the tail above the head, so the overall bounds are misleading.
+    private val reactionHeadAnchors = mapOf(
+        "blackcat_stresh/stresh1.png" to android.graphics.PointF(0.33f, 0.39f),
+        "blackcat_stresh/stresh2.png" to android.graphics.PointF(0.33f, 0.36f),
+        "blackcat_stresh/stresh3.png" to android.graphics.PointF(0.30f, 0.46f)
+    )
+
+    private fun reactionAnchor(frame: String, bounds: android.graphics.Rect): android.graphics.PointF {
+        val head = reactionHeadAnchors[frame] ?: android.graphics.PointF(0.5f, 0f)
+        val horizontalFraction = if (isFacingLeft) 1f - head.x else head.x
+        return android.graphics.PointF(
+            bounds.left + bounds.width() * horizontalFraction,
+            bounds.top + bounds.height() * head.y
+        )
+    }
+
+    private fun catFloorPadding(frames: Array<String>, width: Int, height: Int): Int {
+        val key = "${frames.joinToString()}_${width}_$height"
+        catFloorPaddingCache.get(key)?.let { return it }
+        // Use the lowest contact point of the whole sequence, not each frame.
+        // This removes asset padding without cancelling animated foot lifts or rolls.
+        val padding = frames.mapNotNull { frame ->
+            getBitmapFromAsset(frame, width, height)?.let { bitmap ->
+                val bounds = visibleCatBounds(bitmap, "${frame}_${width}_${height}_false")
+                height - bounds.bottom
+            }
+        }.minOrNull() ?: 0
+        catFloorPaddingCache.put(key, padding)
+        return padding
+    }
+
+    private fun visibleCatBounds(bitmap: android.graphics.Bitmap, key: String): android.graphics.Rect {
+        visibleCatBoundsCache.get(key)?.let { return it }
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        var left = bitmap.width
+        var top = bitmap.height
+        var right = 0
+        var bottom = 0
+        for (y in 0 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
+                if ((pixels[y * bitmap.width + x] ushr 24) > 32) {
+                    left = minOf(left, x)
+                    top = minOf(top, y)
+                    right = maxOf(right, x + 1)
+                    bottom = maxOf(bottom, y + 1)
+                }
+            }
+        }
+        val bounds = if (right > left && bottom > top) {
+            android.graphics.Rect(left, top, right, bottom)
+        } else {
+            android.graphics.Rect(0, 0, bitmap.width, bitmap.height)
+        }
+        visibleCatBoundsCache.put(key, bounds)
+        return bounds
+    }
+
+    // Brief feedback overlays the status without changing the cat's action or needs.
+    private fun showInteractionReaction(iconRes: Int) {
+        interactionReactionJob?.cancel()
+        interactionReactionIconRes = iconRes
+        updateWidget()
+        interactionReactionJob = scope.launch {
+            delay(1500L)
+            interactionReactionIconRes = null
+            updateWidget()
+        }
+    }
     private var randomMessage: String? = null
 
     // Animation frame tracking (เฟรมเปลี่ยนตามเวลา ไม่ใช่ตามจำนวนครั้งที่เรียก updateWidget)
     private var currentFrameIndex = 0
+    private var isStartingWalk = false
     private var lastFrameAdvanceTime = 0L
     private val FRAME_INTERVAL_MS = 180L   // ยิ่งมากยิ่งช้า
     private val bitmapCache = mutableMapOf<String, android.graphics.Bitmap>()
@@ -392,10 +471,24 @@ class CatWidgetService : Service() {
         )
     )
 
-    private val idleFrames = arrayOf("blackcat_idle/idle1.png")
+    private val idleFrames = arrayOf(
+        "cati_idle_new/00_Cati_Idle_new.png", "cati_idle_new/01_Cati_Idle_new.png",
+        "cati_idle_new/02_Cati_Idle_new.png", "cati_idle_new/03_Cati_Idle_new.png",
+        "cati_idle_new/04_Cati_Idle_new.png", "cati_idle_new/05_Cati_Idle_new.png",
+        "cati_idle_new/06_Cati_Idle_new.png", "cati_idle_new/07_Cati_Idle_new.png",
+        "cati_idle_new/08_Cati_Idle_new.png", "cati_idle_new/09_Cati_Idle_new.png",
+        "cati_idle_new/10_Cati_Idle_new.png", "cati_idle_new/11_Cati_Idle_new.png"
+    )
     private val walkFrames = arrayOf(
-        "blackcat_walk/walk1.png", "blackcat_walk/walk2.png", "blackcat_walk/walk3.png", "blackcat_walk/walk4.png",
-        "blackcat_walk/walk5.png", "blackcat_walk/walk6.png", "blackcat_walk/walk7.png", "blackcat_walk/walk8.png"
+        "cati_walk_new/00_Cati_Walk_new.png", "cati_walk_new/01_Cati_Walk_new.png",
+        "cati_walk_new/02_Cati_Walk_new.png", "cati_walk_new/03_Cati_Walk_new.png",
+        "cati_walk_new/04_Cati_Walk_new.png", "cati_walk_new/05_Cati_Walk_new.png",
+        "cati_walk_new/06_Cati_Walk_new.png", "cati_walk_new/07_Cati_Walk_new.png",
+        "cati_walk_new/08_Cati_Walk_new.png", "cati_walk_new/09_Cati_Walk_new.png",
+        "cati_walk_new/10_Cati_Walk_new.png", "cati_walk_new/11_Cati_Walk_new.png"
+    )
+    private val idleToWalkFrames = arrayOf(
+        "cati_idle_to_walk/transition_01.png", "cati_idle_to_walk/transition_02.png"
     )
     private val eatFrames = arrayOf("blackcat_eat/eat1.png", "blackcat_eat/eat2.png", "blackcat_eat/eat3.png", "blackcat_eat/eat4.png")
     private val playFrames = arrayOf("blackcat_play/play1.png", "blackcat_play/play2.png", "blackcat_play/play3.png")
@@ -430,7 +523,8 @@ class CatWidgetService : Service() {
     private fun getFramesForState(): Array<String> = when (catState) {
         State.EATING -> eatFrames
         State.PLAYING -> playFrames
-        State.WALKING, State.WALKING_TO_CENTER, State.WALKING_TO_ITEM -> walkFrames
+        State.WALKING, State.WALKING_TO_CENTER, State.WALKING_TO_ITEM ->
+            if (isStartingWalk) idleToWalkFrames else walkFrames
         State.STRETCH -> stretchFrames
         State.ANGRY -> angryFrames
         State.NAP -> napFrames
@@ -451,6 +545,9 @@ class CatWidgetService : Service() {
 
     private fun setCatState(newState: State) {
         if (catState == newState) return
+        isStartingWalk = catState == State.IDLE && newState in listOf(
+            State.WALKING, State.WALKING_TO_CENTER, State.WALKING_TO_ITEM
+        )
         catState = newState
         // เปลี่ยนท่าใหม่ เริ่มเฟรมแรกเสมอ
         currentFrameIndex = 0
@@ -729,6 +826,7 @@ class CatWidgetService : Service() {
 
         val emotion = updateEmotion()
         val reaction = pickTapReactionForEmotion(emotion)
+        showInteractionReaction(R.drawable.ic_status_heart)
 
         if (reaction.state == State.JUMPING) {
             startJumpAround()
@@ -779,7 +877,7 @@ class CatWidgetService : Service() {
     }
 
     private fun handleStatusBubbleTap() {
-        if (chaseActive) return
+        if (chaseActive || interactionReactionIconRes != null) return
 
         val currentConfig = statusConfigMap[catState]
         if (currentConfig != null && currentConfig.isClickable && currentConfig.targetState != null) {
@@ -798,20 +896,6 @@ class CatWidgetService : Service() {
                     saveStatsToPrefs()
                     playEatSound()
                 }
-            }
-        } else {
-            val eatingConfig = statusConfigMap[State.EATING]
-            performStateAction(
-                State.EATING,
-                5000L,
-                eatingConfig?.message ?: "อร่อยจัง!",
-                R.drawable.ic_status_food
-            ) {
-                hunger = (hunger - 60).coerceAtLeast(0)
-                energy = (energy + 15).coerceAtMost(100)
-                boredom = (boredom - 10).coerceAtLeast(0)
-                saveStatsToPrefs()
-                playEatSound()
             }
         }
     }
@@ -873,6 +957,8 @@ class CatWidgetService : Service() {
     }
 
     private fun resetState() {
+        interactionReactionJob?.cancel()
+        interactionReactionIconRes = null
         actionJob?.cancel()
         walkTestJob?.cancel()
         itemFallJob?.cancel()
@@ -1005,7 +1091,7 @@ class CatWidgetService : Service() {
             val density = resources.displayMetrics.density
 
             // 1. เดินไปใกล้ๆ แถบ Drawer ฝั่งขวามือ (Right Edge)
-            val panelWpx = (DRAWER_PANEL_WIDTH_DP * density).toInt()
+            val panelWpx = drawerPanelWidthPx
             val rightTargetX = (maxX - panelWpx / 2).coerceIn(0, maxX)
 
             setCatState(State.WALKING)
@@ -1015,7 +1101,12 @@ class CatWidgetService : Service() {
             updateWidget()
 
             val step = (8 * density / 2f).toInt().coerceAtLeast(6)
-            while (kotlin.math.abs(catX - rightTargetX) > step) {
+            while (isStartingWalk || kotlin.math.abs(catX - rightTargetX) > step) {
+                if (isStartingWalk) {
+                    updateWidget()
+                    delay(80)
+                    continue
+                }
                 if (catX < rightTargetX) catX += step else catX -= step
                 catX = catX.coerceIn(0, maxX)
                 updateWidget()
@@ -1125,8 +1216,14 @@ class CatWidgetService : Service() {
         val gy = goalY.coerceIn(0, maxY)
         val step = (stepDp * resources.displayMetrics.density).toInt().coerceAtLeast(1)
 
+        if (gx != catX) isFacingLeft = gx < catX
         setCatState(state)
         while (catState == state) {
+            if (isStartingWalk) {
+                updateWidget()
+                delay(frameDelayMs)
+                continue
+            }
             val dx = gx - catX
             val dy = gy - catY
             if (kotlin.math.abs(dx) <= step && kotlin.math.abs(dy) <= step) {
@@ -1291,6 +1388,7 @@ class CatWidgetService : Service() {
             itemY = currentBallY
 
             setCatState(State.WAND_PLAY)
+            showInteractionReaction(R.drawable.ic_status_sparkle)
             unityMessage = listOf("จับได้แล้ว! ⚽✨", "แปะๆๆ 🐾", "ตะครุบโดนแล้ว!").random()
             updateWidget()
 
@@ -1572,6 +1670,7 @@ class CatWidgetService : Service() {
     }
 
     private fun cancelChase() {
+
         chaseJob?.cancel()
         chaseJob = null
         chaseActive = false
@@ -1820,7 +1919,11 @@ class CatWidgetService : Service() {
 
                 if (!isBusyState) {
                     if (catState == State.IDLE) {
-                        delay(1000)
+                        // Keep idle frames playing during the existing pause before choosing an action.
+                        repeat(5) {
+                            delay(200)
+                            updateWidget()
+                        }
                         val rand = Random.nextInt(100)
                         if (rand < 50) {
                             setCatState(State.WALKING)
@@ -1848,7 +1951,7 @@ class CatWidgetService : Service() {
                                 )
                             }
                         }
-                    } else if (catState == State.WALKING || catState == State.WALKING_TO_CENTER) {
+                    } else if ((catState == State.WALKING || catState == State.WALKING_TO_CENTER) && !isStartingWalk) {
                         val (maxX, maxY) = getMaxBounds()
                         targetX = targetX.coerceIn(0, maxX)
                         targetY = targetY.coerceIn(0, maxY)
@@ -2049,14 +2152,15 @@ class CatWidgetService : Service() {
         return (getItemSizeDpForType(type) * density).toInt().coerceAtLeast(1)
     }
 
-    private fun getBaseCatSizeDp(): Int {
+    private fun getBaseCatSizeDp(widgetId: Int? = null): Int {
         val appWidgetManager = AppWidgetManager.getInstance(this)
         val componentName = ComponentName(this, CatWidgetProvider::class.java)
         val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
 
         var currentWidthDp = 150
-        if (appWidgetIds.isNotEmpty()) {
-            val options = appWidgetManager.getAppWidgetOptions(appWidgetIds[0])
+        val resolvedWidgetId = widgetId ?: appWidgetIds.firstOrNull()
+        if (resolvedWidgetId != null) {
+            val options = appWidgetManager.getAppWidgetOptions(resolvedWidgetId)
             val isPortrait =
                 resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
             val w =
@@ -2064,42 +2168,40 @@ class CatWidgetService : Service() {
             if (w > 0) currentWidthDp = w
         }
 
-        return when {
-            currentWidthDp < 200 -> 60
-            currentWidthDp > 350 -> 130
-            else -> 90
-        }
+        // Scale proportionally instead of jumping at 200dp and 350dp.
+        // Keep the established minimum and maximum for readability and clearance.
+        return (currentWidthDp * 0.32f).roundToInt().coerceIn(60, 130)
     }
 
-    private fun getCatSizeDpForState(state: State): Pair<Int, Int> {
-        val baseCatSizeDp = getBaseCatSizeDp()
+    private fun getCatSizeDpForState(state: State, widgetId: Int? = null): Pair<Int, Int> {
+        val baseCatSizeDp = getBaseCatSizeDp(widgetId)
         return when (state) {
             State.IDLE -> Pair(baseCatSizeDp - 2, baseCatSizeDp - 2)
             State.NAP -> Pair((baseCatSizeDp * 1f).toInt(), (baseCatSizeDp * 1.4f).toInt())
 
             State.WALKING, State.WALKING_TO_CENTER, State.WALKING_TO_ITEM,
             State.SNUGGLE, State.HUNGRY, State.ITCHY,
-            State.ANGRY -> Pair(baseCatSizeDp + 15, baseCatSizeDp + 15)
+            State.ANGRY -> Pair(baseCatSizeDp + 8, baseCatSizeDp + 8)
             State.TRAIN_IDLE, State.WALK_COUNTING -> Pair(baseCatSizeDp, baseCatSizeDp)
 
             State.EATING -> Pair(baseCatSizeDp, baseCatSizeDp)
-            State.STRETCH -> Pair(baseCatSizeDp + 15, baseCatSizeDp)
+            State.STRETCH -> Pair(baseCatSizeDp + 8, baseCatSizeDp)
             State.PLAYING -> Pair(baseCatSizeDp + 5, baseCatSizeDp + 5)
             // ใกล้เคียง JUMPING เพื่อไม่ให้ขนาดกระชากตอนสลับท่าระหว่างไล่บอล
             State.WAND_PLAY -> Pair(baseCatSizeDp + 10, baseCatSizeDp + 10)
             State.BOX_HIDDEN, State.BOX_EMERGE -> Pair(baseCatSizeDp + 20, baseCatSizeDp + 20)
-            State.GROOMING -> Pair(baseCatSizeDp + 5, baseCatSizeDp + 5)
-            State.JUMPING -> Pair(baseCatSizeDp+15, baseCatSizeDp+15)
-            State.ROLLING -> Pair(baseCatSizeDp + 15, baseCatSizeDp + 5)
-            State.CHASE_INVITE -> Pair(baseCatSizeDp + 15, baseCatSizeDp)
+            State.GROOMING -> Pair(baseCatSizeDp + 4, baseCatSizeDp + 4)
+            State.JUMPING -> Pair(baseCatSizeDp + 10, baseCatSizeDp + 10)
+            State.ROLLING -> Pair(baseCatSizeDp + 10, baseCatSizeDp + 4)
+            State.CHASE_INVITE -> Pair(baseCatSizeDp + 10, baseCatSizeDp)
             State.CHASE_HOP -> Pair(baseCatSizeDp + 10, baseCatSizeDp + 10)
             State.CAT_CHOOSE_TOY -> Pair(baseCatSizeDp + 5, baseCatSizeDp + 5)
         }
     }
 
-    private fun getCatSizePxForState(state: State): Pair<Int, Int> {
+    private fun getCatSizePxForState(state: State, widgetId: Int? = null): Pair<Int, Int> {
         val density = resources.displayMetrics.density
-        val (widthDp, heightDp) = getCatSizeDpForState(state)
+        val (widthDp, heightDp) = getCatSizeDpForState(state, widgetId)
         // ปัดเป็นทีละ 4px กัน bitmap ใหม่ทุกเฟรมจาก squish
         val widthPx = ((widthDp * density * squishScaleX).toInt() / 4 * 4).coerceAtLeast(4)
         val heightPx = ((heightDp * density * squishScaleY).toInt() / 4 * 4).coerceAtLeast(4)
@@ -2108,11 +2210,11 @@ class CatWidgetService : Service() {
 
     private val SAFETY_SCALE = 1.1f
 
-    private fun getStableCatSizePx(): Pair<Int, Int> {
+    private fun getStableCatSizePx(widgetId: Int? = null): Pair<Int, Int> {
         val density = resources.displayMetrics.density
-        val (curW, curH) = getCatSizeDpForState(catState)
-        val (idleW, idleH) = getCatSizeDpForState(State.IDLE)
-        val (refW, refH) = getCatSizeDpForState(State.JUMPING)
+        val (curW, curH) = getCatSizeDpForState(catState, widgetId)
+        val (idleW, idleH) = getCatSizeDpForState(State.IDLE, widgetId)
+        val (refW, refH) = getCatSizeDpForState(State.JUMPING, widgetId)
 
         val maxW = maxOf(curW, refW, idleW)
         val maxH = maxOf(curH, refH, idleH)
@@ -2146,20 +2248,27 @@ class CatWidgetService : Service() {
         val appWidgetManager = AppWidgetManager.getInstance(this)
         val componentName = ComponentName(this, CatWidgetProvider::class.java)
         val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
-        Log.d(TAG, "updateWidget: ids=${appWidgetIds.toList()}, state=$catState, serviceJob.isActive=${serviceJob?.isActive}")
         // เฟรมเปลี่ยนตามเวลา ไม่ใช่ตามจำนวนครั้งที่เรียก
-        val currentFrames = getFramesForState()
+        var currentFrames = getFramesForState()
         val now = System.currentTimeMillis()
         if (now - lastFrameAdvanceTime >= FRAME_INTERVAL_MS) {
-            currentFrameIndex = (currentFrameIndex + 1) % currentFrames.size
+            if (isStartingWalk && currentFrameIndex == idleToWalkFrames.lastIndex) {
+                isStartingWalk = false
+                currentFrameIndex = 0
+                currentFrames = getFramesForState()
+            } else {
+                currentFrameIndex = (currentFrameIndex + 1) % currentFrames.size
+            }
             lastFrameAdvanceTime = now
         }
         val frameIdx = currentFrameIndex % currentFrames.size
+        Log.d(TAG, "updateWidget: ids=${appWidgetIds.toList()}, state=$catState, frame=${currentFrames[frameIdx]}, facingLeft=$isFacingLeft, serviceJob.isActive=${serviceJob?.isActive}")
 
         for (widgetId in appWidgetIds) {
             val views = RemoteViews(packageName, R.layout.cat_widget)
+            CatWidgetProvider.bindThemePicker(this, views, widgetId)
             views.setImageViewResource(R.id.catiBackground, WidgetTheme.backgroundRes(this))  // <-- เพิ่มบรรทัดนี้
-            val (catWidthPx, catHeightPx) = getCatSizePxForState(catState)
+            val (catWidthPx, catHeightPx) = getCatSizePxForState(catState, widgetId)
 
             val bitmap = getBitmapFromAsset(
                 currentFrames[frameIdx],
@@ -2167,7 +2276,25 @@ class CatWidgetService : Service() {
                 catHeightPx,
                 flipHorizontal = isFacingLeft
             )
-            if (bitmap != null) views.setImageViewBitmap(R.id.catImage, bitmap)
+            if (bitmap != null) {
+                views.setImageViewBitmap(R.id.catImage, bitmap)
+                // Ignore transparent asset padding when placing the badge above the cat.
+                val bounds = visibleCatBounds(
+                    bitmap, "${currentFrames[frameIdx]}_${bitmap.width}_${bitmap.height}_$isFacingLeft"
+                )
+                val anchor = reactionAnchor(currentFrames[frameIdx], bounds)
+                val density = resources.displayMetrics.density
+                views.setViewLayoutMargin(
+                    R.id.statusBubbleContainer, RemoteViews.MARGIN_START,
+                    (anchor.x - 12f * density).coerceAtLeast(0f),
+                    TypedValue.COMPLEX_UNIT_PX
+                )
+                views.setViewLayoutMargin(
+                    R.id.statusBubbleContainer, RemoteViews.MARGIN_BOTTOM,
+                    bitmap.height - anchor.y + 3f * density,
+                    TypedValue.COMPLEX_UNIT_PX
+                )
+            }
 
             val (maxX, maxY) = getMaxBounds(widgetId)
             catX = catX.coerceIn(0, maxX)
@@ -2182,13 +2309,18 @@ class CatWidgetService : Service() {
             views.setViewLayoutMargin(
                 R.id.catContainer,
                 RemoteViews.MARGIN_BOTTOM,
-                catY.toFloat(),
+                catY.toFloat() + when (catState) {
+                    // Airborne and box animations have their own placement choreography.
+                    State.JUMPING, State.CHASE_HOP, State.BOX_HIDDEN, State.BOX_EMERGE -> 0f
+                    else -> CAT_FLOOR_GAP_DP * resources.displayMetrics.density -
+                        catFloorPadding(currentFrames, catWidthPx, catHeightPx)
+                },
                 TypedValue.COMPLEX_UNIT_PX
             )
 
             val isBoxThere = (catState == State.BOX_HIDDEN || catState == State.BOX_EMERGE)
             val configInfo = statusConfigMap[catState]
-            val iconRes = if (isBoxThere) null else currentStatusIconRes ?: configInfo?.iconRes
+            val iconRes = if (isBoxThere) null else interactionReactionIconRes ?: currentStatusIconRes ?: configInfo?.iconRes
             val displayMessage: String? = null
 
             if (iconRes != null) {
@@ -2207,7 +2339,13 @@ class CatWidgetService : Service() {
 
             if (iconRes != null || !displayMessage.isNullOrEmpty()) {
                 views.setViewVisibility(R.id.statusBubbleContainer, View.VISIBLE)
-                val statusIntent = makePendingIntent(widgetId, CatWidgetProvider.ACTION_TAP_STATUS)
+                val statusIntent = if (interactionReactionIconRes == null &&
+                    configInfo?.isClickable == true && configInfo.targetState != null
+                ) {
+                    makePendingIntent(widgetId, CatWidgetProvider.ACTION_TAP_STATUS)
+                } else {
+                    null
+                }
                 views.setOnClickPendingIntent(R.id.statusBubbleContainer, statusIntent)
             } else {
                 views.setViewVisibility(R.id.statusBubbleContainer, View.GONE)
@@ -2253,8 +2391,8 @@ class CatWidgetService : Service() {
                     views.setViewVisibility(R.id.drawerPanelContainer, View.VISIBLE)
 
                     val density = resources.displayMetrics.density
-                    val panelFullWidthPx = (DRAWER_PANEL_WIDTH_DP * density).toInt()
-                    val restMarginPx = (2 * density).toInt()
+                    val panelFullWidthPx = drawerPanelWidthPx
+                    val restMarginPx = resources.getDimensionPixelSize(R.dimen.drawer_edge_inset)
 
                     // progress 0 = ซ่อนอยู่นอกจอขวา, 1 = เปิดเต็ม
                     val endMarginPx = ((drawerProgress - 1.0f) * (panelFullWidthPx + restMarginPx) + restMarginPx).toInt()
@@ -2417,7 +2555,7 @@ class CatWidgetService : Service() {
 
     private fun getMaxBounds(widgetId: Int? = null): Pair<Int, Int> {
         val bounds = getWidgetBounds(widgetId)
-        val (catWidthPx, catHeightPx) = getStableCatSizePx()
+        val (catWidthPx, catHeightPx) = getStableCatSizePx(widgetId)
         val density = resources.displayMetrics.density
 
         val systemInsetXPx = (16 * density).toInt()
@@ -2436,10 +2574,12 @@ class CatWidgetService : Service() {
 
     private fun getDrawerSlotCatY(slotIndex: Int): Int {
         val bounds = getWidgetBounds()
-        val density = resources.displayMetrics.density
-        val margin = 8 * density
-        val slotH = (bounds.heightPx - 2 * margin) / 5f
-        val centerFromTop = margin + (slotIndex + 0.5f) * slotH
+        val panelHeight = resources.getDimension(R.dimen.drawer_panel_height)
+            .coerceAtMost(bounds.heightPx.toFloat())
+        val padding = resources.getDimension(R.dimen.drawer_vertical_padding)
+        val slotH = (panelHeight - 2 * padding) / itemTypes.size
+        val centerFromTop = (bounds.heightPx - panelHeight) / 2f + padding +
+            (slotIndex + 0.5f) * slotH
         val (_, catH) = getStableCatSizePx()
         val (_, maxY) = getMaxBounds()
         // พิกัด Y ใน Widget นับจากด้านล่างขึ้นบน
@@ -2683,7 +2823,10 @@ class CatWidgetService : Service() {
         itemFallJob?.cancel(); jumpJob?.cancel(); squishJob?.cancel()
         chaseJob?.cancel()
         drawerAnimJob?.cancel(); catToyPickJob?.cancel()
+        interactionReactionJob?.cancel()
         bitmapCache.clear()
+        visibleCatBoundsCache.evictAll()
+        catFloorPaddingCache.evictAll()
 
         try {
             eatPlayer?.stop()

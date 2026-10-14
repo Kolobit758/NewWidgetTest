@@ -25,6 +25,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".WidgetThemePickerActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar.TranslucentDecor" />
+
         <receiver
             android:name=".CatWidgetProvider"
             android:exported="true">

@@ -22,9 +22,9 @@ object WidgetTheme {
     const val DEFAULT_DURATION_MS = 5 * 1000L
 
     private val themeMap = mapOf(
-        "minimal" to R.drawable.minimal_bg,
+        "minimal" to R.drawable.minimal_room_bg,
         "beach" to R.drawable.bg_beach,
-        "coffee" to R.drawable.bg_coffee
+        "coffee" to R.drawable.bg_cafe
     )
 
     private val keywords = mapOf(
